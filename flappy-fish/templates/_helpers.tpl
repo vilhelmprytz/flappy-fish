@@ -51,12 +51,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Create the name of the service account to use
+Image reference. A digest pins the exact build and is preferred; the tag is the
+fallback for manual deploys.
 */}}
-{{- define "flappy-fish.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "flappy-fish.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
+{{- define "flappy-fish.image" -}}
+{{- if .Values.image.digest -}}
+{{ .Values.image.repository }}@{{ .Values.image.digest }}
+{{- else -}}
+{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+{{- end -}}
 {{- end }}
