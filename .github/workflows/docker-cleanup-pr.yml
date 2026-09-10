@@ -1,0 +1,63 @@
+name: Docker cleanup
+
+# When a pull request closes, delete the image that was published for it so
+# GHCR does not fill up with one package version per PR.
+
+on:
+  pull_request:
+    types: [ closed ]
+
+jobs:
+  delete-pr-image:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - name: Delete the pr-${{ github.event.number }} image from GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          OWNER_TYPE: ${{ github.event.repository.owner.type }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          TAG: pr-${{ github.event.number }}
+        run: |
+          set -euo pipefail
+
+          # GHCR package names are the lowercased repository name.
+          package=$(printf '%s' "$REPO_NAME" | tr '[:upper:]' '[:lower:]')
+          if [ "$OWNER_TYPE" = "Organization" ]; then
+            base="/orgs/${OWNER}/packages/container/${package}/versions"
+          else
+            base="/users/${OWNER}/packages/container/${package}/versions"
+          fi
+
+          versions=$(gh api --paginate "$base" --jq '.[]')
+
+          # A merged PR can produce an image byte-identical to the one main
+          # builds, in which case both tags point at the same package version.
+          # Deleting it would take main's image with it, so leave those alone;
+          # the pr- tag is harmless once it shares a digest with main.
+          shared=$(printf '%s' "$versions" | jq -r --arg tag "$TAG" '
+            select(.metadata.container.tags | index($tag))
+            | select([.metadata.container.tags[] | select(. == "main" or . == "latest")] | length > 0)
+            | .id')
+
+          if [ -n "$shared" ]; then
+            echo "Version(s) tagged ${TAG} also carry main/latest; keeping them."
+          fi
+
+          ids=$(printf '%s' "$versions" | jq -r --arg tag "$TAG" '
+            select(.metadata.container.tags | index($tag))
+            | select([.metadata.container.tags[] | select(. == "main" or . == "latest")] | length == 0)
+            | .id')
+
+          if [ -z "$ids" ]; then
+            echo "Nothing to delete for ${TAG}."
+            exit 0
+          fi
+
+          for id in $ids; do
+            echo "Deleting package version ${id} (tagged ${TAG})"
+            gh api --method DELETE "${base}/${id}"
+          done
