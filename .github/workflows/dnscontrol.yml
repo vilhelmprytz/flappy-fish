@@ -1,0 +1,47 @@
+name: DNSControl
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'dnscontrol/**'
+      - '.github/workflows/dnscontrol.yml'
+  pull_request:
+    branches: ['main']
+    paths:
+      - 'dnscontrol/**'
+      - '.github/workflows/dnscontrol.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  dnscontrol:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    container:
+      image: ghcr.io/dnscontrol/dnscontrol:5.0.4
+
+    defaults:
+      run:
+        working-directory: dnscontrol
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Preview
+        if: github.event_name == 'pull_request'
+        env:
+          DNSCONTROL_API_TOKEN: ${{ secrets.DNSCONTROL_API_TOKEN }}
+        run: dnscontrol preview
+
+      - name: Push
+        if: github.event_name != 'pull_request'
+        env:
+          DNSCONTROL_API_TOKEN: ${{ secrets.DNSCONTROL_API_TOKEN }}
+        run: dnscontrol push
