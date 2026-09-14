@@ -1,21 +1,19 @@
-name: DNSControl
+name: DNSControl preview
 
 on:
-  push:
+  pull_request:
     branches: ['main']
     paths:
       - 'dnscontrol/**'
-      - '.github/workflows/dnscontrol.yml'
-  pull_request:
-    branches: ['main']
-    types: [opened, reopened, closed]
-  workflow_dispatch:
+      - '.github/workflows/dnscontrol-preview.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  dnscontrol:
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+  preview:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,19 +22,13 @@ jobs:
     container:
       image: ghcr.io/dnscontrol/dnscontrol:5.0.4
 
-    concurrency:
-      group: dnscontrol-zone
-      cancel-in-progress: false
-
     defaults:
       run:
         working-directory: dnscontrol
 
     steps:
-      - name: Checkout main
+      - name: Checkout pull request
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'push' && github.sha || 'main' }}
 
       - name: Collect open pull requests
         uses: actions/github-script@v9
@@ -55,7 +47,7 @@ jobs:
             );
             core.info(`open pull requests: ${numbers.join(", ") || "(none)"}`);
 
-      - name: Push
+      - name: Preview
         env:
           DNSCONTROL_API_TOKEN: ${{ secrets.DNSCONTROL_API_TOKEN }}
-        run: dnscontrol push
+        run: dnscontrol preview
