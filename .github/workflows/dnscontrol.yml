@@ -1,0 +1,61 @@
+name: DNSControl
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'dnscontrol/**'
+      - '.github/workflows/dnscontrol.yml'
+  pull_request:
+    branches: ['main']
+    types: [opened, reopened, closed]
+  workflow_dispatch:
+
+jobs:
+  dnscontrol:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    container:
+      image: ghcr.io/dnscontrol/dnscontrol:5.0.4
+
+    concurrency:
+      group: dnscontrol-zone
+      cancel-in-progress: false
+
+    defaults:
+      run:
+        working-directory: dnscontrol
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || 'main' }}
+
+      - name: Collect open pull requests
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+            const numbers = prs.map((pr) => pr.number).sort((a, b) => a - b);
+            require("fs").writeFileSync(
+              "dnscontrol/prs.json",
+              JSON.stringify(numbers) + "\n",
+            );
+            core.info(`open pull requests: ${numbers.join(", ") || "(none)"}`);
+
+      - name: Push
+        env:
+          DNSCONTROL_API_TOKEN: ${{ secrets.DNSCONTROL_API_TOKEN }}
+        run: dnscontrol push

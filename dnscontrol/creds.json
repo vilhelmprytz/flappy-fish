@@ -1,0 +1,9 @@
+{
+  "netnod_primary": {
+    "TYPE": "NETNOD",
+    "apiKey": "$DNSCONTROL_API_TOKEN"
+  },
+  "none_primary": {
+    "TYPE": "NONE"
+  }
+}

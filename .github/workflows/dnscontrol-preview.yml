@@ -1,0 +1,53 @@
+name: DNSControl preview
+
+on:
+  pull_request:
+    branches: ['main']
+    paths:
+      - 'dnscontrol/**'
+      - '.github/workflows/dnscontrol-preview.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    container:
+      image: ghcr.io/dnscontrol/dnscontrol:5.0.4
+
+    defaults:
+      run:
+        working-directory: dnscontrol
+
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v4
+
+      - name: Collect open pull requests
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+            const numbers = prs.map((pr) => pr.number).sort((a, b) => a - b);
+            require("fs").writeFileSync(
+              "dnscontrol/prs.json",
+              JSON.stringify(numbers) + "\n",
+            );
+            core.info(`open pull requests: ${numbers.join(", ") || "(none)"}`);
+
+      - name: Preview
+        env:
+          DNSCONTROL_API_TOKEN: ${{ secrets.DNSCONTROL_API_TOKEN }}
+        run: dnscontrol preview
