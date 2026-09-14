@@ -10,6 +10,6 @@ var DNS_NETNOD = NewDnsProvider("netnod_primary");
 // Domains:
 
 D("k8s.signed.zone", REG_NONE, DnsProvider(DNS_NETNOD),
-    A("@", "1.2.3.4")
+    NAMESERVER("ns.hejduk.se."),
+    ALIAS("flappy-fish", "home.hejduk.nu.", TTL(60)),
 );
-
