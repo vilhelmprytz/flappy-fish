@@ -31,7 +31,7 @@ ingress:
     # Defaults to <fullname>-tls when left empty.
     secretName: ""
 
-origin: https://flappy-fish.k8s.signed.zone
+origin: ""
 
 env: {}
 

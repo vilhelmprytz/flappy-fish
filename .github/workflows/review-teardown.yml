@@ -1,0 +1,47 @@
+name: Review teardown
+
+on:
+  pull_request:
+    types: [closed]
+
+concurrency:
+  group: deploy-flappy-fish-pr-${{ github.event.number }}
+  cancel-in-progress: false
+
+jobs:
+  teardown:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Connect to the tailnet
+        uses: tailscale/github-action@v4.1.3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v5.1.0
+
+      - name: Write kubeconfig
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          umask 077
+          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$RUNNER_TEMP/kubeconfig"
+          echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
+
+      - name: Delete the review namespace
+        env:
+          NAMESPACE: flappy-fish-pr-${{ github.event.number }}
+        run: |
+          set -euo pipefail
+
+          # A PR closed without ever deploying (build failed, or it was opened
+          # before review deployments existed) has no namespace, and that is not
+          # a failure.
+          kubectl delete namespace "$NAMESPACE" \
+            --ignore-not-found --timeout=5m
+
+          echo "Removed ${NAMESPACE}." >> "$GITHUB_STEP_SUMMARY"

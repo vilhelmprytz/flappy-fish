@@ -6,11 +6,32 @@ on:
       digest:
         required: true
         type: string
+      release:
+        description: "Helm release name."
+        required: false
+        type: string
+        default: flappy-fish
+      namespace:
+        description: "Namespace to deploy into. Created if missing."
+        required: false
+        type: string
+        default: flappy-fish
+      host:
+        description: "Ingress hostname. ORIGIN follows it."
+        required: false
+        type: string
+        default: flappy-fish.k8s.signed.zone
+      bootstrap:
+        description: >-
+          Install cert-manager if absent and apply the ClusterIssuers.
+        required: false
+        type: boolean
+        default: true
     secrets:
       TS_AUTHKEY:
         required: true
       ACME_EMAIL:
-        required: true
+        required: false
       KUBECONFIG_B64:
         required: true
   workflow_dispatch:
@@ -19,6 +40,26 @@ on:
         description: "Image digest to deploy, e.g. sha256:abc123..."
         required: true
         type: string
+      release:
+        required: false
+        type: string
+        default: flappy-fish
+      namespace:
+        required: false
+        type: string
+        default: flappy-fish
+      host:
+        required: false
+        type: string
+        default: flappy-fish.k8s.signed.zone
+      bootstrap:
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-${{ inputs.namespace }}
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -52,6 +93,7 @@ jobs:
           echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
 
       - name: Bootstrap cluster resources
+        if: ${{ inputs.bootstrap }}
         env:
           ACME_EMAIL: ${{ secrets.ACME_EMAIL }}
           CERT_MANAGER_VERSION: v1.21.2
@@ -67,8 +109,13 @@ jobs:
       - name: Deploy
         env:
           DIGEST: ${{ inputs.digest }}
+          RELEASE: ${{ inputs.release }}
+          NAMESPACE: ${{ inputs.namespace }}
+          HOST: ${{ inputs.host }}
         run: |
-          helm upgrade --install flappy-fish ./flappy-fish \
-            --namespace flappy-fish --create-namespace \
+          set -euo pipefail
+          helm upgrade --install "$RELEASE" ./flappy-fish \
+            --namespace "$NAMESPACE" --create-namespace \
             --set image.digest="$DIGEST" \
+            --set ingress.host="$HOST" \
             --wait --timeout 5m

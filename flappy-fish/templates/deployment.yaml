@@ -31,7 +31,7 @@ spec:
             - name: PORT
               value: {{ .Values.containerPort | quote }}
             - name: ORIGIN
-              value: {{ .Values.origin | quote }}
+              value: {{ .Values.origin | default (printf "https://%s" .Values.ingress.host) | quote }}
             {{- range $name, $value := .Values.env }}
             - name: {{ $name }}
               value: {{ $value | quote }}
