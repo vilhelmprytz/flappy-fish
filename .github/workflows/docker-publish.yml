@@ -10,9 +10,9 @@ name: Docker
 # repository: a fork PR gets a read-only GITHUB_TOKEN and would fail to push.
 on:
   push:
-    branches: [ "main" ]
+    branches: ['main']
   pull_request:
-    branches: [ "main" ]
+    branches: ['main']
 
 env:
   REGISTRY: ghcr.io

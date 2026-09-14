@@ -38,9 +38,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # A PR closed without ever deploying (build failed, or it was opened
-          # before review deployments existed) has no namespace, and that is not
-          # a failure.
           kubectl delete namespace "$NAMESPACE" \
             --ignore-not-found --timeout=5m
 

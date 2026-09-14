@@ -7,17 +7,17 @@ on:
         required: true
         type: string
       release:
-        description: "Helm release name."
+        description: 'Helm release name.'
         required: false
         type: string
         default: flappy-fish
       namespace:
-        description: "Namespace to deploy into. Created if missing."
+        description: 'Namespace to deploy into. Created if missing.'
         required: false
         type: string
         default: flappy-fish
       host:
-        description: "Ingress hostname. ORIGIN follows it."
+        description: 'Ingress hostname. ORIGIN follows it.'
         required: false
         type: string
         default: flappy-fish.k8s.signed.zone
@@ -37,7 +37,7 @@ on:
   workflow_dispatch:
     inputs:
       digest:
-        description: "Image digest to deploy, e.g. sha256:abc123..."
+        description: 'Image digest to deploy, e.g. sha256:abc123...'
         required: true
         type: string
       release:
