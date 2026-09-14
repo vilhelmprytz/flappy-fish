@@ -22,11 +22,12 @@ service:
 
 ingress:
   enabled: true
-  className: nginx
-  annotations: {}
+  className: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
   host: flappy-fish.k8s.signed.zone
   tls:
-    enabled: false
+    enabled: true
     # Defaults to <fullname>-tls when left empty.
     secretName: ""
 
