@@ -34,6 +34,29 @@ TS=$(ssh k3s-home "sudo tailscale status --json | jq -r '.Self.DNSName'" | sed '
 ssh k3s-home 'sudo cat /etc/rancher/k3s/k3s.yaml' \
   | sed "s|127.0.0.1|${TS}|" | base64 | tr -d '\n' | gh secret set KUBECONFIG_B64
 ```
-## 4. Push
+## 4. Split-horizon DNS
+
+If you have split-horizon DNS setup, you might need to do this to allow in-cluster look-ups.
+
+```bash
+kubectl apply -f - <<YAML
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  k8s-signed-zone.override: |
+    template IN A k8s.signed.zone {
+      match "^(.*\\.)?k8s\\.signed\\.zone\\.$"
+      answer "{{ .Name }} 60 IN A $(kubectl -n kube-system get svc traefik -o jsonpath='{.spec.clusterIP}')"
+      fallthrough
+    }
+YAML
+```
+
+k3s imports `*.override` into its Corefile and the `reload` plugin picks it up.
+
+## 5. Push
 
 Push and it should work!
