@@ -156,7 +156,7 @@
 			<strong class="score">{score}</strong>
 		{:else}
 			<section class="card">
-				<h2>{status === 'ready' ? 'Ready to dive?' : `Score: ${score}`}</h2>
+				<h2>{status === 'ready' ? 'Ready to swim?' : `Score: ${score}`}</h2>
 				<p>{status === 'ready' ? 'Swim through the coral pipes.' : 'Give it another go!'}</p>
 				<button onclick={start}>{status === 'ready' ? 'Play' : 'Play again'}</button>
 			</section>
