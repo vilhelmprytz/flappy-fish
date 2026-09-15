@@ -1,42 +1,31 @@
-# sv
+# flappy-fish
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Flappy Bird, but a fish. SvelteKit + canvas, served from a Raspberry Pi at
+[flappy-fish.k8s.signed.zone](https://flappy-fish.k8s.signed.zone).
 
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv@0.17.0 create --template minimal --types ts --add prettier eslint ai-tools="ide:claude-code,vscode+delivery:plugin+tools:svelte-code-writer,svelte-core-bestpractices,svelte-file-editor,mcp+mcpSetup:remote" --install npm flappy-fish
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
+```bash
+npm install
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
+## Pipeline
 
-To create a production version of your app:
+```mermaid
+flowchart LR
+  dev([push / PR]) --> ci[GitHub Actions]
 
-```sh
-npm run build
+  subgraph pi [Raspberry Pi · tailnet]
+    k3s[k3s] --> traefik[Traefik + cert-manager] --> app[flappy-fish]
+  end
+
+  ci -- docker build --> ghcr[(GHCR)]
+  ci -- helm upgrade --> k3s
+  ci -- dnscontrol --> dns[DNS provider]
+  ghcr -. pull .-> k3s
+  dns -.-> traefik
 ```
 
-You can preview the production build with `npm run preview`.
+Every PR gets its own namespace and hostname,
+`flappy-fish-pr-<n>.k8s.signed.zone`, removed when the PR closes.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Cluster setup: [deploy/README.md](deploy/README.md) · chart: [flappy-fish/](flappy-fish/) · DNS: [dnscontrol/](dnscontrol/)
