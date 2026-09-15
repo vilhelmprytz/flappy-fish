@@ -21,6 +21,18 @@ on:
         required: false
         type: string
         default: flappy-fish.k8s.signed.zone
+      environment:
+        description: 'GitHub environment the deployment is recorded under.'
+        required: false
+        type: string
+        default: production
+      transient:
+        description: >-
+          Mark the environment ephemeral. Transient deployments are exempt from
+          auto_inactive, so whoever sets this owns deactivating them.
+        required: false
+        type: boolean
+        default: false
       bootstrap:
         description: >-
           Install cert-manager if absent and apply the ClusterIssuers.
@@ -52,6 +64,14 @@ on:
         required: false
         type: string
         default: flappy-fish.k8s.signed.zone
+      environment:
+        required: false
+        type: string
+        default: production
+      transient:
+        required: false
+        type: boolean
+        default: false
       bootstrap:
         required: false
         type: boolean
@@ -66,10 +86,32 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      deployments: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Create the GitHub deployment
+        id: deployment
+        uses: actions/github-script@v9
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          TRANSIENT: ${{ inputs.transient }}
+          REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        with:
+          script: |
+            const { data } = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: process.env.REF,
+              environment: process.env.ENVIRONMENT,
+              transient_environment: process.env.TRANSIENT === 'true',
+              description: `flappy-fish ${process.env.ENVIRONMENT}`,
+              auto_merge: false,
+              required_contexts: [],
+            });
+            return data.id;
 
       - name: Connect to the tailnet
         uses: tailscale/github-action@v4.1.3
@@ -119,3 +161,22 @@ jobs:
             --set image.digest="$DIGEST" \
             --set ingress.host="$HOST" \
             --wait --timeout 5m
+
+      - name: Report the deployment status
+        if: ${{ always() && steps.deployment.outputs.result }}
+        uses: actions/github-script@v9
+        env:
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.result }}
+          JOB_STATUS: ${{ job.status }}
+          ENVIRONMENT_URL: https://${{ inputs.host }}
+        with:
+          script: |
+            const ok = process.env.JOB_STATUS === 'success';
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: Number(process.env.DEPLOYMENT_ID),
+              state: ok ? 'success' : 'failure',
+              ...(ok ? { environment_url: process.env.ENVIRONMENT_URL } : {}),
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });

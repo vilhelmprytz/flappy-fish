@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      deployments: write
 
     steps:
       - name: Connect to the tailnet
@@ -42,3 +43,34 @@ jobs:
             --ignore-not-found --timeout=5m
 
           echo "Removed ${NAMESPACE}." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deactivate the review deployments
+        if: always()
+        uses: actions/github-script@v9
+        env:
+          ENVIRONMENT: pr-${{ github.event.number }}
+        with:
+          script: |
+            const environment = process.env.ENVIRONMENT;
+            const deployments = await github.paginate(
+              github.rest.repos.listDeployments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                environment,
+                per_page: 100,
+              },
+            );
+
+            for (const deployment of deployments) {
+              await github.rest.repos.createDeploymentStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                deployment_id: deployment.id,
+                state: 'inactive',
+              });
+            }
+
+            const summary = `Deactivated ${deployments.length} deployment(s) for ${environment}.`;
+            core.info(summary);
+            await core.summary.addRaw(summary).write();
