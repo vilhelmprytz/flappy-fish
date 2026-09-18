@@ -242,7 +242,7 @@
 		padding: 13px;
 		border: 0;
 		border-radius: 10px;
-		background: #FF2800;
+		background: #ffc34d;
 		color: #07394d;
 		font: inherit;
 		font-weight: 800;
